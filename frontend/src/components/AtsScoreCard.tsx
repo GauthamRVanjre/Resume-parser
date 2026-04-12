@@ -1,0 +1,105 @@
+const RADIUS = 48;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS; // ≈ 301.6
+
+interface AtsScoreCardProps {
+  score?: number;
+}
+
+const AtsScoreCard = ({ score = 75 }: AtsScoreCardProps) => {
+  const dashOffset = CIRCUMFERENCE * (1 - score / 100);
+
+  return (
+    <div className="glass-panel rounded-xl p-6">
+      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+        {/* Circular gauge */}
+        <div className="relative flex-shrink-0">
+          <svg
+            width="140"
+            height="140"
+            viewBox="0 0 120 120"
+            className="overflow-visible"
+          >
+            {/* Glow filter */}
+            <defs>
+              <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                <feMerge>
+                  <feMergeNode in="coloredBlur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+
+            {/* Track */}
+            <circle
+              cx="60"
+              cy="60"
+              r={RADIUS}
+              fill="none"
+              stroke="#222a3d"
+              strokeWidth="9"
+            />
+
+            {/* Progress arc */}
+            <circle
+              cx="60"
+              cy="60"
+              r={RADIUS}
+              fill="none"
+              stroke="#70d8c8"
+              strokeWidth="9"
+              strokeLinecap="round"
+              strokeDasharray={CIRCUMFERENCE}
+              strokeDashoffset={dashOffset}
+              filter="url(#glow)"
+              style={{ transform: "rotate(-90deg)", transformOrigin: "60px 60px" }}
+            />
+          </svg>
+
+          {/* Center text overlay */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-3xl font-extrabold text-[#f2f4f6] leading-none">
+              {score}%
+            </span>
+            <span className="text-[10px] font-semibold text-[#8f909a] tracking-widest mt-0.5">
+              ATS SCORE
+            </span>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex flex-col justify-between flex-1 gap-4">
+          <div>
+            <h3 className="text-[#f2f4f6] font-bold text-lg mb-2">Narrative Strength</h3>
+            <p className="text-[#c5c5d4] text-sm leading-relaxed">
+              Your resume shows strong alignment in{" "}
+              <span className="text-[#f2f4f6] font-semibold">technical leadership</span>
+              , but lacks specific{" "}
+              <span className="text-[#70d8c8] font-semibold underline decoration-dotted">
+                stakeholder management
+              </span>{" "}
+              keywords required for this role.
+            </p>
+          </div>
+
+          {/* Badges */}
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex items-center gap-1.5 bg-[#005048]/40 border border-[#70d8c8]/30 text-[#70d8c8] text-[10px] font-bold tracking-wider px-3 py-1 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#70d8c8]" />
+              GOOD MATCH
+            </span>
+            <span className="inline-flex items-center gap-1.5 bg-[#3f51b5]/20 border border-[#3f51b5]/40 text-[#bcc2ff] text-[10px] font-bold tracking-wider px-3 py-1 rounded-full">
+              <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8" stroke="#bcc2ff" strokeWidth="2" />
+                <path d="m21 21-4.35-4.35" stroke="#bcc2ff" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              12 KEYWORDS DETECTED
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AtsScoreCard;
