@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
+@theme {
+  --color-background: #0b1326;
+  --color-surface: #0b1326;
+  --color-surface-dim: #0b1326;
+  --color-surface-container-lowest: #070e1d;
+  --color-surface-container-low: #1a233a;
+  --color-surface-container: #131b2e;
+  --color-surface-container-high: #222a3d;
+  --color-surface-container-highest: #34373a;
+  --color-surface-bright: #1a233a;
+  --color-surface-variant: #454652;
+  --color-inverse-surface: #e0e3e5;
+  --color-on-surface: #f2f4f6;
+  --color-on-surface-variant: #c5c5d4;
+  --color-on-background: #f2f4f6;
+  --color-primary: #3f51b5;
+  --color-primary-container: #3f51b5;
+  --color-primary-fixed: #dfe0ff;
+  --color-primary-fixed-dim: #bcc2ff;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #cbcfff;
+  --color-inverse-primary: #3f51b5;
+  --color-secondary: #70d8c8;
+  --color-secondary-container: #005048;
+  --color-secondary-fixed: #8df5e4;
+  --color-secondary-fixed-dim: #70d8c8;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #007165;
+  --color-tertiary-fixed: #ffdeac;
+  --color-tertiary-fixed-dim: #ffba38;
+  --color-on-tertiary-container: #ffc971;
+  --color-error: #ffb4ab;
+  --color-error-container: #ffdad6;
+  --color-on-error: #690005;
+  --color-outline: #8f909a;
+  --color-outline-variant: #454652;
+  --color-surface-tint: #3f51b5;
+  --color-inverse-on-surface: #0b1326;
+
+  --font-headline: "Manrope", sans-serif;
+  --font-body: "Manrope", sans-serif;
+  --font-label: "Manrope", sans-serif;
+
+  --radius: 0.25rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-full: 9999px;
+}
+
+* {
+  font-family: "Manrope", sans-serif;
+}
+
+.glass-panel {
+  background: rgba(19, 27, 46, 0.8);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(69, 70, 82, 0.2);
+}
+
+.dot-grid-bg {
+  background-color: #0b1326;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
