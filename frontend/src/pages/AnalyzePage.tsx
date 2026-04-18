@@ -4,12 +4,11 @@ import UploadResumeCard, { type UploadState } from "../components/UploadResumeCa
 import AtsScoreCard, { type ResultState } from "../components/AtsScoreCard";
 import KeywordMatchCard from "../components/KeywordMatchCard";
 import PriorityImprovementsCard from "../components/PriorityImprovementsCard";
-import { uploadResume, analyzeResume, type AnalysisResult } from "../services/api";
+import { uploadResume, analyzeResume, analyzeGuest, type AnalysisResult } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
 const AnalyzePage = () => {
-  const { session } = useAuth();
-  // session is guaranteed non-null here — ProtectedRoute redirects if no session
+  const { session, isGuest, guestId } = useAuth();
   const token = session?.access_token ?? "";
 
   const [jobDescription, setJobDescription] = useState("");
@@ -18,6 +17,8 @@ const AnalyzePage = () => {
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [uploadError, setUploadError] = useState("");
   const [uploadedFileName, setUploadedFileName] = useState("");
+  // Holds the file in memory for guests (sent to backend only on analyze)
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   // Analysis state
   const [resultState, setResultState] = useState<ResultState>("idle");
@@ -27,30 +28,49 @@ const AnalyzePage = () => {
   const canAnalyze =
     uploadState === "uploaded" && jobDescription.trim().length > 0 && resultState !== "loading";
 
-  // ── File selected → POST /upload-resume (auto-retries /replace-resume) ──────
+    console.log("token in AnalyzePage:", token, "token length:", token.length);
+
+  // ── File selected ─────────────────────────────────────────────────────────
+  // Guests: store the file locally — no upload yet (sent on analyze).
+  // Google users: upload immediately to save the resume to the DB.
   const handleFileSelect = async (file: File) => {
     setUploadState("uploading");
     setUploadError("");
+    setResultState("idle");
+    setAnalysis(null);
+
+    if (isGuest) {
+      setPendingFile(file);
+      setUploadedFileName(file.name);
+      setUploadState("uploaded");
+      return;
+    }
+
     try {
       await uploadResume(file, token);
       setUploadedFileName(file.name);
       setUploadState("uploaded");
-      // Reset analysis when a new resume is uploaded
-      setResultState("idle");
-      setAnalysis(null);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed");
       setUploadState("error");
     }
   };
 
-  // ── Run Deep Analysis → POST /analyze-resume ─────────────────────────────────
+  // ── Run Deep Analysis ─────────────────────────────────────────────────────
   const handleAnalyze = async () => {
     if (!canAnalyze) return;
     setResultState("loading");
     setResultError("");
+
     try {
-      const result = await analyzeResume(token, jobDescription);
+      let result: AnalysisResult;
+
+      if (isGuest && pendingFile && guestId) {
+        result = await analyzeGuest(pendingFile, jobDescription, guestId);
+      } else {
+        result = await analyzeResume(token, jobDescription);
+      }
+
       setAnalysis(result);
       setResultState("success");
     } catch (err) {
@@ -72,6 +92,21 @@ const AnalyzePage = () => {
             Align your narrative with the professional requirements.
           </p>
         </div>
+
+        {/* Guest banner */}
+        {isGuest && (
+          <div className="mb-6 flex items-center gap-3 bg-[#1a233a] border border-[#454652]/40 rounded-xl px-4 py-3">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" className="flex-shrink-0">
+              <circle cx="12" cy="12" r="10" stroke="#70d8c8" strokeWidth="1.5" />
+              <path d="M12 8v4M12 16h.01" stroke="#70d8c8" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <p className="text-[#8f909a] text-xs">
+              You're in guest mode — results are not saved.{" "}
+              <a href="/login" className="text-[#70d8c8] hover:underline">Sign in with Google</a>{" "}
+              to keep your resume across sessions.
+            </p>
+          </div>
+        )}
 
         {/* Two-column layout */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 lg:gap-6">

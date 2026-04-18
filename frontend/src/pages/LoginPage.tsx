@@ -2,33 +2,19 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-type Mode = "signin" | "signup";
-
 const LoginPage = () => {
-  const { signIn, signUp } = useAuth();
+  const { signInWithGoogle, continueAsGuest } = useAuth();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState<"google" | null>(null);
 
-  const [mode, setMode] = useState<Mode>("signin");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  const switchMode = (m: Mode) => {
-    setMode(m);
-    setError(null);
+  const handleGoogle = async () => {
+    setLoading("google");
+    await signInWithGoogle();
+    // page redirects away via Supabase OAuth; loading state is intentionally not reset
   };
 
-  const handleSubmit = async (e: { preventDefault(): void }) => {
-    e.preventDefault();
-    setError(null);
-    setSubmitting(true);
-
-    const fn = mode === "signin" ? signIn : signUp;
-    const { error: err } = await fn(email, password);
-    setSubmitting(false);
-
-    if (err) { setError(err); return; }
+  const handleGuest = () => {
+    continueAsGuest();
     navigate("/");
   };
 
@@ -49,96 +35,60 @@ const LoginPage = () => {
 
         {/* Card */}
         <div className="glass-panel rounded-2xl p-8">
-          <h2 className="text-[#f2f4f6] font-extrabold text-xl mb-1 text-center">
-            {mode === "signin" ? "Welcome back" : "Create an account"}
-          </h2>
-          <p className="text-[#8f909a] text-xs text-center mb-6">
-            {mode === "signin"
-              ? "Sign in to access your resume analysis."
-              : "Start optimizing your resume with AI."}
+          <h2 className="text-[#f2f4f6] font-extrabold text-xl mb-1 text-center">Welcome</h2>
+          <p className="text-[#8f909a] text-xs text-center mb-8">
+            Optimize your resume with AI-powered ATS analysis.
           </p>
 
-          {/* Tab toggle */}
-          <div className="flex bg-[#0b1326] rounded-xl p-1 mb-6 border border-[#454652]/30">
-            {(["signin", "signup"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => switchMode(m)}
-                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
-                  mode === m
-                    ? "bg-[#131b2e] text-[#f2f4f6] border border-[#454652]/30"
-                    : "text-[#8f909a] hover:text-[#c5c5d4]"
-                }`}
-              >
-                {m === "signin" ? "Sign In" : "Sign Up"}
-              </button>
-            ))}
-          </div>
+          <div className="flex flex-col gap-3">
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            {/* Email */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[#c5c5d4] text-xs font-semibold tracking-widest uppercase">
-                Email
-              </label>
-              <input
-                type="email"
-                required
-                autoFocus
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="bg-[#0b1326] border border-[#454652]/60 rounded-xl px-4 py-3 text-[#f2f4f6] text-sm placeholder-[#454652] focus:outline-none focus:border-[#70d8c8]/50 transition-colors"
-              />
-            </div>
-
-            {/* Password */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[#c5c5d4] text-xs font-semibold tracking-widest uppercase">
-                Password
-              </label>
-              <input
-                type="password"
-                required
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="bg-[#0b1326] border border-[#454652]/60 rounded-xl px-4 py-3 text-[#f2f4f6] text-sm placeholder-[#454652] focus:outline-none focus:border-[#70d8c8]/50 transition-colors"
-              />
-            </div>
-
-            {/* Error */}
-            {error && (
-              <div className="flex items-center gap-2 bg-[#690005]/20 border border-[#ffb4ab]/30 rounded-xl px-4 py-3">
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" className="flex-shrink-0">
-                  <circle cx="12" cy="12" r="10" stroke="#ffb4ab" strokeWidth="1.5" />
-                  <path d="M12 8v4M12 16h.01" stroke="#ffb4ab" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-                <p className="text-[#ffb4ab] text-sm">{error}</p>
-              </div>
-            )}
-
-            {/* Submit */}
+            {/* Google Sign-in */}
             <button
-              type="submit"
-              disabled={submitting}
-              className="mt-1 w-full bg-[#3f51b5] hover:bg-[#3a4aa8] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+              onClick={handleGoogle}
+              disabled={loading !== null}
+              className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed text-gray-700 font-semibold text-sm py-3 rounded-xl transition-colors border border-gray-200"
             >
-              {submitting ? (
+              {loading === "google" ? (
                 <>
-                  <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.3)" strokeWidth="2" />
-                    <path d="M12 3a9 9 0 0 1 9 9" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+                  <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="9" stroke="rgba(0,0,0,0.2)" strokeWidth="2" />
+                    <path d="M12 3a9 9 0 0 1 9 9" stroke="#4285F4" strokeWidth="2" strokeLinecap="round" />
                   </svg>
-                  {mode === "signin" ? "Signing in…" : "Creating account…"}
+                  Redirecting…
                 </>
               ) : (
-                mode === "signin" ? "Sign In" : "Create Account"
+                <>
+                  <svg width="18" height="18" viewBox="0 0 24 24">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                  </svg>
+                  Sign in with Google
+                </>
               )}
             </button>
-          </form>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 my-1">
+              <div className="flex-1 h-px bg-[#454652]/40" />
+              <span className="text-[#454652] text-xs">or</span>
+              <div className="flex-1 h-px bg-[#454652]/40" />
+            </div>
+
+            {/* Guest */}
+            <button
+              onClick={handleGuest}
+              disabled={loading !== null}
+              className="w-full flex items-center justify-center gap-2 bg-transparent hover:bg-[#131b2e] disabled:opacity-60 disabled:cursor-not-allowed border border-[#454652]/50 hover:border-[#454652]/80 text-[#8f909a] hover:text-[#c5c5d4] font-semibold text-sm py-3 rounded-xl transition-colors"
+            >
+              Continue as Guest
+            </button>
+          </div>
+
+          <p className="text-[#454652] text-xs text-center mt-6">
+            Guest results are not saved. Sign in to keep your resume.
+          </p>
         </div>
 
       </div>

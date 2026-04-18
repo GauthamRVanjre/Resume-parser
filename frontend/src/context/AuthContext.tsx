@@ -2,13 +2,17 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
 
+const GUEST_ID_KEY = "guest_id";
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface AuthContextType {
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+  isGuest: boolean;
+  guestId: string | null;
+  signInWithGoogle: () => Promise<void>;
+  continueAsGuest: () => void;
   signOut: () => Promise<void>;
 }
 
@@ -21,6 +25,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [guestId, setGuestId] = useState<string | null>(() => localStorage.getItem(GUEST_ID_KEY));
 
   useEffect(() => {
     const {
@@ -33,27 +38,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error?.message ?? null };
+  const signInWithGoogle = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
   };
 
-  // Signs up, then immediately signs in so the user lands on the app directly.
-  // Requires email confirmation to be disabled in Supabase (Auth → Providers → Email).
-  const signUp = async (email: string, password: string) => {
-    const { error: signUpError } = await supabase.auth.signUp({ email, password });
-    if (signUpError) return { error: signUpError.message };
-
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: signInError?.message ?? null };
+  const continueAsGuest = () => {
+    const id = crypto.randomUUID();
+    localStorage.setItem(GUEST_ID_KEY, id);
+    setGuestId(id);
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    localStorage.removeItem(GUEST_ID_KEY);
+    setGuestId(null);
   };
 
   return (
-    <AuthContext.Provider value={{ session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider
+      value={{
+        session,
+        loading,
+        isGuest: guestId !== null && session === null,
+        guestId,
+        signInWithGoogle,
+        continueAsGuest,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
