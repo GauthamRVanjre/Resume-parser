@@ -5,10 +5,12 @@ import AtsScoreCard, { type ResultState } from "../components/AtsScoreCard";
 import KeywordMatchCard from "../components/KeywordMatchCard";
 import PriorityImprovementsCard from "../components/PriorityImprovementsCard";
 import { uploadResume, analyzeResume, type AnalysisResult } from "../services/api";
-import { useUserId } from "../hooks/useUserId";
+import { useAuth } from "../context/AuthContext";
 
 const AnalyzePage = () => {
-  const userId = useUserId();
+  const { session } = useAuth();
+  // session is guaranteed non-null here — ProtectedRoute redirects if no session
+  const token = session?.access_token ?? "";
 
   const [jobDescription, setJobDescription] = useState("");
 
@@ -25,15 +27,15 @@ const AnalyzePage = () => {
   const canAnalyze =
     uploadState === "uploaded" && jobDescription.trim().length > 0 && resultState !== "loading";
 
-  // ── File selected → call /upload-resume (auto-retries /replace-resume) ──
+  // ── File selected → POST /upload-resume (auto-retries /replace-resume) ──────
   const handleFileSelect = async (file: File) => {
     setUploadState("uploading");
     setUploadError("");
     try {
-      await uploadResume(file, userId);
+      await uploadResume(file, token);
       setUploadedFileName(file.name);
       setUploadState("uploaded");
-      // Reset analysis if a new resume was uploaded
+      // Reset analysis when a new resume is uploaded
       setResultState("idle");
       setAnalysis(null);
     } catch (err) {
@@ -42,13 +44,13 @@ const AnalyzePage = () => {
     }
   };
 
-  // ── Run Deep Analysis → call /analyze-resume ──
+  // ── Run Deep Analysis → POST /analyze-resume ─────────────────────────────────
   const handleAnalyze = async () => {
     if (!canAnalyze) return;
     setResultState("loading");
     setResultError("");
     try {
-      const result = await analyzeResume(userId, jobDescription);
+      const result = await analyzeResume(token, jobDescription);
       setAnalysis(result);
       setResultState("success");
     } catch (err) {
@@ -106,7 +108,7 @@ const AnalyzePage = () => {
                 <>
                   <svg
                     width="18" height="18" fill="none" viewBox="0 0 24 24"
-                    className={`transition-transform ${canAnalyze ? "text-[#70d8c8] group-hover:scale-110" : ""}`}
+                    className={`transition-transform ${canAnalyze ? "group-hover:scale-110" : ""}`}
                   >
                     <polygon
                       points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"
@@ -140,7 +142,6 @@ const AnalyzePage = () => {
               summary={analysis?.summary}
               error={resultError}
             />
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <KeywordMatchCard
                 state={resultState}

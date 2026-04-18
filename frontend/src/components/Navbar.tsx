@@ -1,7 +1,18 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { session, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/login");
+  };
+
+  const userEmail = session?.user.email ?? "";
 
   return (
     <nav className="w-full border-b border-[#454652]/30 bg-[#0b1326]/90 backdrop-blur-md sticky top-0 z-50">
@@ -18,7 +29,7 @@ const Navbar = () => {
             <span className="text-[#f2f4f6] font-bold text-base tracking-tight">Executive Architect</span>
           </div>
 
-          {/* Desktop nav */}
+          {/* Desktop nav links */}
           <div className="hidden md:flex items-center gap-8">
             {["Features", "Pricing"].map((item) => (
               <a
@@ -29,21 +40,21 @@ const Navbar = () => {
                 {item}
               </a>
             ))}
-            <a
-              href="#"
-              className="text-[#70d8c8] text-sm font-semibold border-b border-[#70d8c8] pb-0.5"
-            >
+            <a href="#" className="text-[#70d8c8] text-sm font-semibold border-b border-[#70d8c8] pb-0.5">
               Analysis
             </a>
           </div>
 
-          {/* Desktop actions */}
+          {/* Desktop actions — user email + sign out */}
           <div className="hidden md:flex items-center gap-3">
-            <button className="text-[#c5c5d4] hover:text-[#f2f4f6] text-sm font-medium transition-colors px-3 py-1.5">
-              Login
-            </button>
-            <button className="bg-[#3f51b5] hover:bg-[#3a4aa8] text-white text-sm font-semibold px-5 py-2 rounded-full transition-colors">
-              Get Started
+            <span className="text-[#8f909a] text-xs font-medium truncate max-w-[200px]" title={userEmail}>
+              {userEmail}
+            </span>
+            <button
+              onClick={handleLogout}
+              className="text-[#c5c5d4] hover:text-[#ffb4ab] text-sm font-medium px-3 py-1.5 border border-[#454652]/40 hover:border-[#ffb4ab]/40 rounded-lg transition-colors"
+            >
+              Sign Out
             </button>
           </div>
 
@@ -73,13 +84,15 @@ const Navbar = () => {
                 {item}
               </a>
             ))}
-            <a href="#" className="text-[#70d8c8] text-sm font-semibold px-1">
-              Analysis
-            </a>
-            <div className="flex items-center gap-3 pt-2 border-t border-[#454652]/30">
-              <button className="text-[#c5c5d4] text-sm font-medium">Login</button>
-              <button className="bg-[#3f51b5] text-white text-sm font-semibold px-4 py-2 rounded-full">
-                Get Started
+            <a href="#" className="text-[#70d8c8] text-sm font-semibold px-1">Analysis</a>
+
+            <div className="flex items-center justify-between pt-2 border-t border-[#454652]/30">
+              <span className="text-[#8f909a] text-xs truncate max-w-[180px]">{userEmail}</span>
+              <button
+                onClick={handleLogout}
+                className="text-[#c5c5d4] hover:text-[#ffb4ab] text-sm font-medium transition-colors"
+              >
+                Sign Out
               </button>
             </div>
           </div>
