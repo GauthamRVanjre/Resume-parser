@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { session, signOut } = useAuth();
+  const { session, isGuest, signOut } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -12,7 +12,7 @@ const Navbar = () => {
     navigate("/login");
   };
 
-  const userEmail = session?.user.email ?? "";
+  const userEmail = isGuest ? "Guest" : (session?.user.email ?? "");
 
   return (
     <nav className="w-full border-b border-[#454652]/30 bg-[#0b1326]/90 backdrop-blur-md sticky top-0 z-50">

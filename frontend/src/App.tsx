@@ -12,10 +12,10 @@ import LoginPage from "./pages/LoginPage";
 // Shows a blank dark screen while the INITIAL_SESSION check runs (prevents
 // the login-page flash on page refresh when the user is already logged in).
 function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { session, loading } = useAuth();
+  const { session, loading, isGuest } = useAuth();
 
   if (loading) return <div className="min-h-screen bg-[#0b1326]" />;
-  if (!session) return <Navigate to="/login" replace />;
+  if (!session && !isGuest) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 

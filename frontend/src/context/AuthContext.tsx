@@ -7,9 +7,12 @@ import { supabase } from "../lib/supabaseClient";
 export interface AuthContextType {
   session: Session | null;
   loading: boolean;
+  isGuest: boolean;
+  guestId: string | null;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  continueAsGuest: () => void;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -31,6 +34,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [guestId, setGuestId] = useState<string | null>(
+    () => localStorage.getItem("guest_id")
+  );
+
+  const isGuest = guestId !== null && session === null;
 
   useEffect(() => {
     const {
@@ -77,10 +85,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    localStorage.removeItem("guest_id");
+    setGuestId(null);
+  };
+
+  const continueAsGuest = () => {
+    const id = crypto.randomUUID();
+    localStorage.setItem("guest_id", id);
+    setGuestId(id);
   };
 
   return (
-    <AuthContext.Provider value={{ session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider
+      value={{ session, loading, isGuest, guestId, signIn, signUp, signOut, continueAsGuest }}
+    >
       {children}
     </AuthContext.Provider>
   );

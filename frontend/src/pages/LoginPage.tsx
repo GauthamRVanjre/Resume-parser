@@ -2,10 +2,11 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
+
 type Mode = "signin" | "signup";
 
 const LoginPage = () => {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, continueAsGuest } = useAuth();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<Mode>("signin");
@@ -140,6 +141,20 @@ const LoginPage = () => {
             </button>
           </form>
         </div>
+
+        {/* Guest access */}
+        <div className="mt-4 flex items-center gap-3">
+          <div className="flex-1 h-px bg-[#454652]/30" />
+          <span className="text-[#454652] text-xs">or</span>
+          <div className="flex-1 h-px bg-[#454652]/30" />
+        </div>
+        <button
+          type="button"
+          onClick={() => { continueAsGuest(); navigate("/"); }}
+          className="mt-3 w-full border border-[#454652]/40 hover:border-[#454652]/70 text-[#8f909a] hover:text-[#c5c5d4] font-medium text-sm py-3 rounded-xl transition-colors"
+        >
+          Continue as Guest
+        </button>
 
       </div>
     </div>

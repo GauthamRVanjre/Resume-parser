@@ -56,6 +56,28 @@ export async function uploadResume(file: File, token: string): Promise<UploadRes
   return res.json() as Promise<UploadResponse>;
 }
 
+/** One-shot guest analysis — uploads PDF and analyzes in a single request, no DB write. */
+export async function analyzeGuest(
+  file: File,
+  jobDescription: string,
+  guestId: string
+): Promise<AnalysisResult> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("job_description", jobDescription);
+  form.append("guest_id", guestId);
+
+  const res = await fetch(`${BASE}/analyze-guest`, { method: "POST", body: form });
+
+  if (!res.ok) {
+    const err: { error?: string } = await res.json();
+    throw new Error(err.error ?? "Guest analysis failed");
+  }
+
+  const data: { status: string; analysis: AnalysisResult } = await res.json();
+  return data.analysis;
+}
+
 /** Sends the JWT + job description to the AI analysis endpoint. */
 export async function analyzeResume(token: string, jobDescription: string): Promise<AnalysisResult> {
   const res = await fetch(`${BASE}/analyze-resume`, {

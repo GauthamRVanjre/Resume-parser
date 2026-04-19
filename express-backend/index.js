@@ -3,7 +3,7 @@ import multer from "multer";
 import * as dotenv from "dotenv";
 dotenv.config();
 
-import { uploadResume, replaceResume, analyzeResume } from "./routes/resumeRoutes.js";
+import { uploadResume, replaceResume, analyzeResume, analyzeGuest } from "./routes/resumeRoutes.js";
 import { authMiddleware } from "./middleware/auth.js";
 import authRouter from "./routes/authRoutes.js";
 
@@ -21,6 +21,7 @@ app.use("/auth", authRouter);
 app.post("/upload-resume",  authMiddleware, upload.single("file"), uploadResume);
 app.post("/replace-resume", authMiddleware, upload.single("file"), replaceResume);
 app.post("/analyze-resume", authMiddleware, analyzeResume);
+app.post("/analyze-guest",  upload.single("file"), analyzeGuest);
 
 app.get("/", (_req, res) => {
   res.json({

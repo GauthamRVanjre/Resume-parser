@@ -6,6 +6,7 @@
 import { extractTextFromPdf } from "../services/pdfExtractor.js";
 import { saveResume, getResume, updateResume } from "../services/supabaseClient.js";
 import { analyzeResume as callHuggingFace } from "../services/huggingfaceService.js";
+import { logAnalytics } from "../services/analyticsService.js";
 
 // ── UPLOAD RESUME (First time) ────────────────────────────────────────────────
 export async function uploadResume(req, res) {
@@ -74,6 +75,56 @@ export async function replaceResume(req, res) {
     filename: req.file.originalname,
     text_length: resumeText.length,
   });
+}
+
+// ── ANALYZE GUEST ─────────────────────────────────────────────────────────────
+// No auth. Expects multipart: file (PDF), job_description, guest_id.
+// Extracts text in memory, runs AI, logs analytics — no DB resume write.
+export async function analyzeGuest(req, res) {
+  const { job_description, guest_id } = req.body;
+
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+  if (!job_description) return res.status(400).json({ error: "job_description is required" });
+  if (!guest_id) return res.status(400).json({ error: "guest_id is required" });
+
+  let resumeText;
+  try {
+    resumeText = await extractTextFromPdf(req.file.buffer);
+  } catch {
+    return res.status(400).json({ error: "Could not read PDF file." });
+  }
+
+  if (!resumeText || resumeText.trim().length < 50) {
+    return res.status(400).json({
+      error: "Could not extract text from PDF. Is it a valid resume?",
+    });
+  }
+
+  const aiResponse = await callHuggingFace(resumeText, job_description);
+
+  logAnalytics({ userType: "guest", userId: guest_id, action: "analyze" });
+
+  try {
+    const responseStr = String(aiResponse);
+    const start = responseStr.indexOf("{");
+    const end = responseStr.lastIndexOf("}") + 1;
+
+    if (start !== -1 && end > start) {
+      const parsed = JSON.parse(responseStr.slice(start, end));
+      return res.json({ status: "success", analysis: parsed });
+    }
+
+    return res.json({
+      status: "success",
+      analysis: { raw_response: responseStr, note: "AI response was not in expected format" },
+    });
+  } catch (err) {
+    console.error("AI response parse error:", err);
+    return res.json({
+      status: "success",
+      analysis: { raw_response: String(aiResponse), note: "Could not parse AI response as JSON" },
+    });
+  }
 }
 
 // ── ANALYZE RESUME ────────────────────────────────────────────────────────────

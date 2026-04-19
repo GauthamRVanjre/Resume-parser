@@ -4,12 +4,11 @@ import UploadResumeCard, { type UploadState } from "../components/UploadResumeCa
 import AtsScoreCard, { type ResultState } from "../components/AtsScoreCard";
 import KeywordMatchCard from "../components/KeywordMatchCard";
 import PriorityImprovementsCard from "../components/PriorityImprovementsCard";
-import { uploadResume, analyzeResume, type AnalysisResult } from "../services/api";
+import { uploadResume, analyzeResume, analyzeGuest, type AnalysisResult } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
 const AnalyzePage = () => {
-  const { session } = useAuth();
-  // session is guaranteed non-null here — ProtectedRoute redirects if no session
+  const { session, isGuest, guestId } = useAuth();
   const token = session?.access_token ?? "";
 
   const [jobDescription, setJobDescription] = useState("");
@@ -18,6 +17,7 @@ const AnalyzePage = () => {
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [uploadError, setUploadError] = useState("");
   const [uploadedFileName, setUploadedFileName] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Analysis state
   const [resultState, setResultState] = useState<ResultState>("idle");
@@ -27,15 +27,25 @@ const AnalyzePage = () => {
   const canAnalyze =
     uploadState === "uploaded" && jobDescription.trim().length > 0 && resultState !== "loading";
 
-  // ── File selected → POST /upload-resume (auto-retries /replace-resume) ──────
+  // ── File selected ─────────────────────────────────────────────────────────────
   const handleFileSelect = async (file: File) => {
-    setUploadState("uploading");
     setUploadError("");
+    setSelectedFile(file);
+
+    if (isGuest) {
+      // Guest: hold the file in memory, no DB upload
+      setUploadedFileName(file.name);
+      setUploadState("uploaded");
+      setResultState("idle");
+      setAnalysis(null);
+      return;
+    }
+
+    setUploadState("uploading");
     try {
       await uploadResume(file, token);
       setUploadedFileName(file.name);
       setUploadState("uploaded");
-      // Reset analysis when a new resume is uploaded
       setResultState("idle");
       setAnalysis(null);
     } catch (err) {
@@ -44,13 +54,15 @@ const AnalyzePage = () => {
     }
   };
 
-  // ── Run Deep Analysis → POST /analyze-resume ─────────────────────────────────
+  // ── Run Deep Analysis ─────────────────────────────────────────────────────────
   const handleAnalyze = async () => {
     if (!canAnalyze) return;
     setResultState("loading");
     setResultError("");
     try {
-      const result = await analyzeResume(token, jobDescription);
+      const result = isGuest
+        ? await analyzeGuest(selectedFile!, jobDescription, guestId!)
+        : await analyzeResume(token, jobDescription);
       setAnalysis(result);
       setResultState("success");
     } catch (err) {
