@@ -12,6 +12,16 @@ export interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+async function hashPassword(password: string): Promise<string> {
+  const data = new TextEncoder().encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 // ── Context ───────────────────────────────────────────────────────────────────
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,18 +44,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const res = await fetch("/api/auth/signin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password: await hashPassword(password) }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { error: data.error ?? "Sign in failed" };
+
+    const { error } = await supabase.auth.setSession({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+    });
     return { error: error?.message ?? null };
   };
 
-  // Signs up, then immediately signs in so the user lands on the app directly.
-  // Requires email confirmation to be disabled in Supabase (Auth → Providers → Email).
   const signUp = async (email: string, password: string) => {
-    const { error: signUpError } = await supabase.auth.signUp({ email, password });
-    if (signUpError) return { error: signUpError.message };
+    const res = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password: await hashPassword(password) }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { error: data.error ?? "Sign up failed" };
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: signInError?.message ?? null };
+    const { error } = await supabase.auth.setSession({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+    });
+    return { error: error?.message ?? null };
   };
 
   const signOut = async () => {

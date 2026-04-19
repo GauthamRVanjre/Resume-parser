@@ -5,12 +5,15 @@ dotenv.config();
 
 import { uploadResume, replaceResume, analyzeResume } from "./routes/resumeRoutes.js";
 import { authMiddleware } from "./middleware/auth.js";
+import authRouter from "./routes/authRoutes.js";
 
 const app = express();
 app.use(express.json());
 
 // multer keeps uploaded files in memory as req.file.buffer
 const upload = multer({ storage: multer.memoryStorage() });
+
+app.use("/auth", authRouter);
 
 // Routes — authMiddleware runs first (reads header only, fast),
 // then multer parses the multipart body, then the handler runs.
