@@ -102,7 +102,7 @@ export async function analyzeGuest(req, res) {
 
   const aiResponse = await callHuggingFace(resumeText, job_description);
 
-  logAnalytics({ userType: "guest", userId: guest_id, action: "analyze" });
+  logAnalytics({ userType: "guest", userId: guest_id, action: `job description: ${job_description.substring(0, 100)}` });
 
   try {
     const responseStr = String(aiResponse);
