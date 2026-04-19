@@ -3,7 +3,9 @@ import multer from "multer";
 import * as dotenv from "dotenv";
 dotenv.config();
 
-import { uploadResume, replaceResume, analyzeResume } from "./routes/resumeRoutes.js";
+import { uploadResume, replaceResume, analyzeResume, analyzeGuest } from "./routes/resumeRoutes.js";
+import { authMiddleware } from "./middleware/auth.js";
+import authRouter from "./routes/authRoutes.js";
 
 const app = express();
 app.use(express.json());
@@ -11,12 +13,17 @@ app.use(express.json());
 // multer keeps uploaded files in memory as req.file.buffer
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Routes
-app.post("/upload-resume", upload.single("file"), uploadResume);
-app.post("/replace-resume", upload.single("file"), replaceResume);
-app.post("/analyze-resume", analyzeResume);
+app.use("/auth", authRouter);
 
-app.get("/", (req, res) => {
+// Routes — authMiddleware runs first (reads header only, fast),
+// then multer parses the multipart body, then the handler runs.
+// If auth fails, multer never runs and no file buffer is allocated.
+app.post("/upload-resume",  authMiddleware, upload.single("file"), uploadResume);
+app.post("/replace-resume", authMiddleware, upload.single("file"), replaceResume);
+app.post("/analyze-resume", authMiddleware, analyzeResume);
+app.post("/analyze-guest",  upload.single("file"), analyzeGuest);
+
+app.get("/", (_req, res) => {
   res.json({
     app: "ResumeIQ",
     status: "running",
