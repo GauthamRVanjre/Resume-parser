@@ -7,20 +7,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ResumeIQ — an ATS (Applicant Tracking System) score analyzer. Users upload a PDF resume, paste a job description, and receive an AI-generated score and improvement suggestions.
 
 Two backend implementations of the same API:
-- `backend/` — Python/FastAPI (original)
-- `express-backend/` — Node.js/Express (port, active development)
+- `backend/` — Python/FastAPI (original, reference only)
+- `express-backend/` — Node.js/Express (active development)
 
 Both connect to the same Supabase table (`users_resume`) and the same Hugging Face AI model.
 
-## Running the Backends
+## Running the Project
 
-### Express (Node.js) — primary
+### Express backend (Node.js) — primary
 ```bash
 cd express-backend
 node index.js          # or: npm start
 ```
 
-### FastAPI (Python) — reference
+### Frontend (React + Vite)
+```bash
+cd frontend
+npm run dev            # starts on http://localhost:5173
+npm run build          # tsc + vite build
+npm run lint           # eslint
+```
+
+### FastAPI backend (Python) — reference only
 ```bash
 cd backend
 venv\Scripts\activate  # Windows
@@ -29,44 +37,72 @@ uvicorn main:app --reload
 
 ## Environment Variables
 
-Both backends require a `.env` file with:
+### `express-backend/.env`
 ```
 SUPABASE_URL=
-SUPABASE_KEY=
+SUPABASE_KEY=            # service role key (for backend REST calls)
+SUPABASE_JWT_SECRET=     # from Supabase Dashboard → Project Settings → API → "JWT Secret"
 HUGGINGFACE_API_TOKEN=
+```
+> `SUPABASE_JWT_SECRET` must be the long random string from Supabase — NOT an `eyJ...` key.
+
+### `frontend/.env`
+```
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
 ```
 
 ## API Routes
 
-| Method | Path | Body | Description |
-|--------|------|------|-------------|
-| POST | `/upload-resume` | `multipart/form-data`: `file` (PDF), `user_id` | First-time upload |
-| POST | `/replace-resume` | `multipart/form-data`: `file` (PDF), `user_id` | Replace existing resume |
-| POST | `/analyze-resume` | JSON: `{ user_id, job_description }` | ATS analysis |
+| Method | Path | Auth | Body | Description |
+|--------|------|------|------|-------------|
+| POST | `/upload-resume` | JWT required | `multipart/form-data`: `file` (PDF) | First-time upload |
+| POST | `/replace-resume` | JWT required | `multipart/form-data`: `file` (PDF) | Replace existing resume |
+| POST | `/analyze-resume` | JWT required | JSON: `{ job_description }` | ATS analysis for Google users |
+| POST | `/analyze-guest` | None | `multipart/form-data`: `file`, `job_description`, `guest_id` | One-shot analysis, no DB write |
+
+`user_id` is **never** sent in the request body for protected routes — it is derived from `decoded.sub` in the JWT by `authMiddleware`.
+
+## Authentication Flow
+
+**Google users:** Supabase OAuth (`signInWithOAuth`) → Supabase issues a JWT → frontend stores session → `Authorization: Bearer <token>` header on every API call → `authMiddleware` verifies with `SUPABASE_JWT_SECRET` (HS256) → sets `req.userId = decoded.sub`.
+
+**Guest users:** Frontend generates `crypto.randomUUID()` on "Continue as Guest" click, stores it in `localStorage` under key `guest_id`. Guest calls go to `/analyze-guest` which skips `authMiddleware` entirely — resume is never written to Supabase.
+
+**`ProtectedRoute`** in `App.tsx` allows access if `session` (Google) **or** `isGuest` is truthy; redirects to `/login` otherwise.
 
 ## Express Backend Architecture
 
-**Entry point:** `index.js` — creates the Express app, registers multer middleware for file routes, mounts all route handlers from `routes/resumeRoutes.js`.
-
-**Multer** is configured with `memoryStorage()` so uploaded PDFs stay in RAM as `req.file.buffer` — never written to disk. It is applied per-route in `index.js`, not inside the route handlers.
-
-**Route handlers** (`routes/resumeRoutes.js`) are plain `async function`s. All three routes (`uploadResume`, `replaceResume`, `analyzeResume`) live in one file.
+**Entry point:** `index.js` — registers `authMiddleware` and multer per-route, then mounts handlers from `routes/resumeRoutes.js`. Auth runs before multer so a rejected token never allocates a file buffer.
 
 **Services:**
-- `pdfExtractor.js` — uses `pdf-parse` v2 class API: `new PDFParse({ data: buffer })` then `.getText()`. Note: v2 is a complete rewrite of v1; the old `pdfParse(buffer)` call no longer works.
-- `supabaseClient.js` — raw Supabase REST calls via native `fetch`. Three functions: `saveResume` (POST), `getResume` (GET), `updateResume` (PATCH).
-- `huggingfaceService.js` — calls HF router (`meta-llama/Llama-3.3-70B-Instruct`) using OpenAI-compatible chat completions format via native `fetch`. Uses `AbortSignal.timeout(60000)` for the 60s timeout.
+- `services/pdfExtractor.js` — pdf-parse v2 class API: `new PDFParse({ data: buffer })` then `.getText()`. The old `pdfParse(buffer)` v1 call does not work.
+- `services/supabaseClient.js` — raw Supabase REST via native `fetch`. Functions: `saveResume`, `getResume`, `updateResume`.
+- `services/huggingfaceService.js` — OpenAI-compatible chat completions to `meta-llama/Llama-3.3-70B-Instruct`. Uses `AbortSignal.timeout(60000)`.
+- `services/analyticsService.js` — fire-and-forget POST to `analytics` Supabase table. Errors are swallowed so analytics never break the main response.
 
-**Module system:** ES modules throughout (`"type": "module"` in `package.json`). All imports use `import`/`export` syntax with `.js` extensions.
+**Module system:** ES modules throughout (`"type": "module"`). All imports use `.js` extensions.
 
-## Architecture — Request Flow
+## Request Flow
 
-**Upload/Replace:**
-`multipart/form-data` → multer parses `req.file.buffer` → `PDFParse` extracts text → Supabase REST saves/updates row
+**Upload/Replace (Google users):**
+`multipart/form-data` → `authMiddleware` sets `req.userId` → multer puts PDF in `req.file.buffer` → `PDFParse` extracts text → Supabase REST saves/updates row → analytics logged
 
-**Analyze:**
-JSON body → fetch resume text from Supabase → send to HF AI → extract JSON substring (find first `{` / last `}`) → return `ats_score`, `summary`, `suggestions`, `missing_skills`
+**Analyze (Google users):**
+JSON body → fetch resume text from Supabase → HuggingFace LLM → extract JSON substring (first `{` to last `}`) → return `ats_score`, `summary`, `suggestions`, `missing_skills` → analytics logged
 
-## Supabase Integration
+**Analyze (guest):**
+`multipart/form-data` (no auth) → multer → `PDFParse` extracts text in memory → HuggingFace LLM → return analysis (no DB write) → analytics logged with `user_type: "guest"`
 
-Direct REST API (no SDK). All calls hit `{SUPABASE_URL}/rest/v1/users_resume` with `apikey` and `Authorization: Bearer` headers. `user_id` is the lookup key (`eq.{user_id}` filter param).
+## Frontend Architecture
+
+**Vite proxy:** All `/api/*` requests in dev are proxied to `http://localhost:3000` with the `/api` prefix stripped — defined in `vite.config.ts`. `api.ts` uses `const BASE = "/api"`.
+
+**`api.ts` auto-retry:** `uploadResume` catches a 400 "already exists" error and automatically retries with `/replace-resume`.
+
+**`AuthContext`** (`context/AuthContext.tsx`) exposes: `session`, `loading`, `isGuest`, `guestId`, `signInWithGoogle`, `continueAsGuest`, `signOut`. `isGuest` is `guestId !== null && session === null`.
+
+## Supabase Tables
+
+- `users_resume` — `user_id` (UUID), `resume_text`, `filename`. Lookup key: `user_id`.
+- `analytics` — `id`, `user_type` (`'google'|'guest'`), `user_id` (UUID or guest UUID string), `action` (`'upload_resume'|'analyze'`), `created_at`. No FK constraint on `user_id`.
