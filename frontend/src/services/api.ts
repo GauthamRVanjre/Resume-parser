@@ -1,4 +1,4 @@
-const BASE = "/api";
+const BASE = import.meta.env.VITE_BASE_URL || "/api";
 
 export interface AnalysisResult {
   ats_score: number;
